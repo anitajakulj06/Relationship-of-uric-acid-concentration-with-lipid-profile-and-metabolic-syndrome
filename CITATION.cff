@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite it as below."
+title: "Analysis code: Relationship of serum uric acid with lipid profile and metabolic syndrome in family medicine"
+version: 1.0.0
+date-released: 2026-11-19
+license: MIT
+repository-code: "https://github.com/anitajakulj06/Relationship-of-uric-acid-concentration-with-lipid-profile-and-metabolic-syndrome"
+type: software
+authors:
+  - family-names: Jakulj
+    given-names: Anita
+    affiliation: "Primorje-Gorski Kotar County Health Centre, Rijeka, Croatia"
+keywords:
+  - uric acid
+  - triglycerides
+  - HDL cholesterol
+  - metabolic syndrome
+  - family medicine
