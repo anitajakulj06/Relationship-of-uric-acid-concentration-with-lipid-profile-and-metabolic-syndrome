@@ -56,6 +56,7 @@ df = pd.DataFrame({
     "HDL\n(mmol/L)": hdl,
     "TG\n(mmol/L)": tg,
     "Glukoza\n(mmol/L)": glu,
+    "Kreatinin\n(μmol/L)": np.clip(140 - 0.75 * egfr + 12 * muski + rng.normal(0, 6, n), 45, 140).round(),
     "eGFR\n(mL/min/1.73m²)": egfr,
     "Hipolipemik": hipolipemik,
     "Hiopurikemik": hipourikemik,

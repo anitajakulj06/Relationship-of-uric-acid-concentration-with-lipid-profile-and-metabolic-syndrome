@@ -1,10 +1,14 @@
 # Uric acid, lipid profile and metabolic syndrome — analysis code
 
-Statistical analysis code for the study:
+Statistical analysis code for:
 
-> Jakulj A. *Correlation of uric acid concentration with lipid profile and metabolic syndrome: a retrospective cross-sectional study.*
+> Jakulj A, Bašić Marković N, Lesac Brizić A. *Relationship of Serum Uric Acid with Lipid Profile and Metabolic Syndrome in Family Medicine: A Retrospective Cross-Sectional Study* (submitted to *Diseases*).
 
-The script `analiza.py` reproduces every number reported in the Results section
+based on the specialist thesis:
+
+> Jakulj A. *Odnos (korelacija i povezanost) koncentracije mokraćne kiseline s lipidnim profilom i metaboličkim sindromom: retrospektivna presječna studija.* Faculty of Medicine, University of Rijeka.
+
+The script `analiza.py` reproduces the numbers reported in the Results section
 (descriptive statistics, Spearman and partial Spearman correlations with
 bootstrap 95% confidence intervals, Steiger's z-test, group comparisons and
 hierarchical multiple linear regression).
@@ -55,13 +59,36 @@ The script prints all results to the console (about one minute, mostly due to
 (`SJEME = 42`), so repeated runs on the same data give identical results,
 including bootstrap confidence intervals.
 
-### Note on bootstrap confidence intervals
+### Correspondence with the published values
 
-The script uses a fixed random seed, so repeated runs give identical output.
-For a few unadjusted coefficients (Sections 3.3–3.5 and Table 4), the bootstrap
-95% confidence limits reported in the article come from an earlier run of the
-analysis and may differ from this script's output in the second or third decimal
-place (at most 0.012). Point estimates, p-values and all conclusions are identical.
+The output is ordered by the Results chapter of the specialist thesis (sections 4.1–4.8),
+with the corresponding article section given in brackets. All point estimates, test
+statistics and p-values reproduce the published values exactly. Two kinds of minor
+differences are expected:
+
+1. **Bootstrap confidence limits for five unadjusted coefficients.** These were reported
+   from an earlier run of the analysis whose code was not preserved. The script uses a
+   fixed seed (42), so its own output is identical on every run. It differs from the
+   published limits only in the second or third decimal place:
+
+   | Coefficient | Published 95% CI | This script |
+   |---|---|---|
+   | Uric acid – triglycerides, whole sample | 0.233 to 0.502 | 0.234 to 0.505 |
+   | Uric acid – triglycerides, participants with hyperuricaemia | 0.053 to 0.491 | 0.041 to 0.495 |
+   | Uric acid – HDL-cholesterol, whole sample | −0.420 to −0.137 | −0.421 to −0.142 |
+   | Uric acid – HDL-cholesterol, women | −0.363 to 0.084 | −0.352 to 0.083 |
+   | Uric acid – LDL-cholesterol, whole sample | −0.103 to 0.201 | −0.105 to 0.204 |
+
+   No conclusion depends on these differences: the significance and direction of every
+   coefficient are unchanged.
+
+2. **Rounding.** p-values are printed with four decimals. Two published values were rounded
+   from four decimals: p = 0.2605 was reported as 0.261 (Table 4, men), and the Shapiro–Wilk
+   p = 0.2745 for the residuals of the LDL model was reported as 0.275 (Table 5).
+
+The script also prints one supplementary result that is not reported in the publications:
+the partial correlation of uric acid with triglycerides and LDL-cholesterol adjusted for
+age, sex, eGFR and BMI jointly (labelled "dodatno, nije navedeno u radu").
 
 ## Files
 
