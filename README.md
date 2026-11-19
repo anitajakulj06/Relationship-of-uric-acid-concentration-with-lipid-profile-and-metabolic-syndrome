@@ -8,6 +8,7 @@ The script `analiza.py` reproduces every number reported in the Results section
 (descriptive statistics, Spearman and partial Spearman correlations with
 bootstrap 95% confidence intervals, Steiger's z-test, group comparisons and
 hierarchical multiple linear regression).
+`slika1.py` reproduces Figure 1.
 
 ## Data availability
 
@@ -24,9 +25,9 @@ with it are for demonstration only and do **not** match the published results.
 ## Requirements
 
 - Python 3.11 or newer
-- Packages listed in `requirements.txt` (pandas, NumPy, SciPy, statsmodels, openpyxl)
+- Packages listed in `requirements.txt` (pandas, NumPy, SciPy, statsmodels, openpyxl, matplotlib)
 
-Tested with Python 3.13, pandas 3.1, NumPy 2.5, SciPy 1.18, statsmodels 0.15, openpyxl 3.1.
+Tested with Python 3.13, pandas 3.1.1, NumPy 2.5.5, SciPy 1.18.1, statsmodels 0.15.0, openpyxl 3.1.5 and matplotlib 3.11.
 
 ## How to run
 
@@ -44,6 +45,9 @@ python analiza.py --podaci primjer_podaci.xlsx
 
 # or on the original data (available on request)
 python analiza.py --podaci tablica_unos_podataka.xlsx --sheet Podaci
+
+# Figure 1 (600 dpi PNG)
+python slika1.py --podaci tablica_unos_podataka.xlsx --izlaz slika1.png
 ```
 
 The script prints all results to the console (about one minute, mostly due to
@@ -51,11 +55,20 @@ The script prints all results to the console (about one minute, mostly due to
 (`SJEME = 42`), so repeated runs on the same data give identical results,
 including bootstrap confidence intervals.
 
+### Note on bootstrap confidence intervals
+
+The script uses a fixed random seed, so repeated runs give identical output.
+For a few unadjusted coefficients (Sections 3.3–3.5 and Table 4), the bootstrap
+95% confidence limits reported in the article come from an earlier run of the
+analysis and may differ from this script's output in the second or third decimal
+place (at most 0.012). Point estimates, p-values and all conclusions are identical.
+
 ## Files
 
 | File | Description |
 |---|---|
 | `analiza.py` | Full statistical analysis |
+| `slika1.py` | Figure 1 (forest plot of correlations) |
 | `primjer_podaci.xlsx` | Synthetic example dataset (not real patients) |
 | `napravi_primjer.py` | Script that generated the synthetic dataset |
 | `requirements.txt` | Required Python packages |

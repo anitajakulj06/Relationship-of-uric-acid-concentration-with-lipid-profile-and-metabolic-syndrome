@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import statsmodels.api as sm
+from statsmodels.stats.diagnostic import het_breuschpagan
 
 SJEME = 42        # fiksirano sjeme generatora slučajnih brojeva (ponovljivost)
 B_BOOT = 5000     # broj uzoraka u postupku samoučitavanja (bootstrap)
@@ -37,7 +38,7 @@ STUPCI = {
     "dijast": "TT dijastolički\n(mmHg)", "hipolipemik": "Hipolipemik",
     "hipourikemik": "Hiopurikemik", "mets": "MetS",
     "broj_kriterija": "Broj kriterija", "datum": "Datum vađenja krvi",
-    "sifra": "Šifra pacijenta",
+    "sifra": "Šifra pacijenta", "kreatinin": "Kreatinin\n(μmol/L)",
 }
 
 # gornja granica referentnog intervala laboratorija (µmol/L)
@@ -152,13 +153,17 @@ def hijerarhijska(df, ishod, blok1, blok2, blok3=None):
         return sm.OLS(y, sm.add_constant(dat[pred].astype(float).values)).fit()
 
     m1, m2 = fit(blok1), fit(blok1 + blok2)
+    X2 = sm.add_constant(dat[blok1 + blok2].astype(float).values)
+    vifs = _vif(dat[blok1 + blok2])
     dR2 = m2.rsquared - m1.rsquared
     F = (dR2 / len(blok2)) / ((1 - m2.rsquared) / m2.df_resid)
     out = {"R2_1": m1.rsquared, "R2_2": m2.rsquared, "dR2": dR2, "F": F,
            "df": (len(blok2), int(m2.df_resid)),
            "p": float(stats.f.sf(F, len(blok2), m2.df_resid)),
            "beta": m2.params[1 + len(blok1)] * sd[blok2[0]] / sd[ishod],
-           "VIF_max": max(_vif(dat[blok1 + blok2])), "n": len(dat)}
+           "VIF_min": min(vifs), "VIF_max": max(vifs), "n": len(dat),
+           "BP_p": float(het_breuschpagan(m2.resid, X2)[1]),
+           "SW_p": float(stats.shapiro(m2.resid)[1])}
     if blok3:
         m3 = fit(blok1 + blok2 + blok3)
         out.update({"R2_3": m3.rsquared,
@@ -197,7 +202,8 @@ def glavna(put, sheet):
       f"žena {(1-df.spol_m).sum()} ({100*(1-df.spol_m.mean()):.1f} %)")
     P(f"Dob: medijan {df[DOB].median():.0f} (IQR {df[DOB].quantile(.25):.0f}–"
       f"{df[DOB].quantile(.75):.0f}); raspon {df[DOB].min():.0f}–{df[DOB].max():.0f}")
-    P(f"Metabolički sindrom: {df.mets_da.sum()} ({100*df.mets_da.mean():.1f} %)")
+    P(f"Metabolički sindrom: {df.mets_da.sum()} ({100*df.mets_da.mean():.1f} %); "
+      f"muškarci {100*df[df.spol_m==1].mets_da.mean():.1f} % vs žene {100*df[df.spol_m==0].mets_da.mean():.1f} %")
     dobne = pd.cut(df[DOB], [0, 39.99, 49.99, 59.99, 69.99, 200],
                    labels=["<40", "40–49", "50–59", "60–69", "≥70"])
     P("Dobne skupine (ukupno / muškarci / MetS+):")
@@ -210,7 +216,7 @@ def glavna(put, sheet):
     P(f"  χ² MetS × spol:          p = {stats.chi2_contingency(pd.crosstab(df.spol_m, df.mets_da))[1]:.3g}")
     for ime, stupac in (("Urat", U), ("TG", TG), ("HDL", HDL), ("LDL", LDL), ("BMI", BMI),
                         ("eGFR", EGFR), ("Opseg struka", STUPCI["struk"]),
-                        ("Glukoza", STUPCI["glukoza"]), ("RR sist.", STUPCI["sist"]),
+                        ("Glukoza", STUPCI["glukoza"]), ("Kreatinin", STUPCI["kreatinin"]), ("RR sist.", STUPCI["sist"]),
                         ("RR dijast.", STUPCI["dijast"])):
         P(f"  {ime:14s} {opis(df[stupac])}")
 
@@ -240,6 +246,14 @@ def glavna(put, sheet):
                      ("bez hipolipemika", df[df.hipolipemik_da == 0])):
         r, p, n, lo, hi = korelacija(pod, U, TG)
         P(f"  Osjetljivost — {ime}: ρ = {r:.3f}; 95 % CI {lo:.3f} do {hi:.3f}; p = {p:.3g}; n = {n}")
+    sk_ru = []
+    for ime, maska in (("bez hiperuricemije", ~hiper), ("s hiperuricemijom", hiper)):
+        r, p, n, lo, hi = korelacija(df[maska], U, TG)
+        sk_ru.append((r, n))
+        P(f"  Podskupina {ime}: ρ = {r:.3f}; 95 % CI {lo:.3f} do {hi:.3f}; p = {p:.3g}; n = {n}")
+    (ra, na), (rb, nb) = sk_ru
+    zf = (np.arctanh(ra) - np.arctanh(rb)) / np.sqrt(1 / (na - 3) + 1 / (nb - 3))
+    P(f"  Fisherov z-test (razlika između podskupina): z = {zf:.2f}; p = {2*stats.norm.sf(abs(zf)):.3g}")
     A = df[[U, TG]].dropna().values
     r, p = stats.pearsonr(A[:, 0], A[:, 1])
     P(f"  Pearsonov r (usporedno) = {r:.3f}; p = {p:.3g}")
@@ -252,12 +266,14 @@ def glavna(put, sheet):
     red("dob, spol, eGFR, ITM", *korelacija(df, U, HDL, OSNOVNE + [BMI]))
     for s, ime in ((1, "muškarci"), (0, "žene")):
         pod = df[df.spol_m == s]
-        r, p, n = spearman(pod[U], pod[HDL])
-        P(f"  ρ ({ime}) = {r:.3f}; p = {p:.3g}; n = {n}")
-    P(f"  HDL po spolu: muškarci medijan {df[df.spol_m==1][HDL].median():.2f} vs "
-      f"žene {df[df.spol_m==0][HDL].median():.2f} mmol/L; "
+        r, p, n, lo, hi = korelacija(pod, U, HDL)
+        P(f"  ρ ({ime}) = {r:.3f}; 95 % CI {lo:.3f} do {hi:.3f}; p = {p:.3g}; n = {n}")
+    hm, hz = df[df.spol_m==1][HDL], df[df.spol_m==0][HDL]
+    P(f"  HDL po spolu: muškarci medijan {hm.median():.2f} (IQR {hm.quantile(.25):.2f}–{hm.quantile(.75):.2f}) vs "
+      f"žene {hz.median():.2f} (IQR {hz.quantile(.25):.2f}–{hz.quantile(.75):.2f}) mmol/L; "
       f"p = {stats.mannwhitneyu(df[df.spol_m==1][HDL], df[df.spol_m==0][HDL])[1]:.3g}")
     kv = pd.qcut(df[U], 4, labels=[1, 2, 3, 4])
+    P(f"  Granice kvartila urata (µmol/L): {[round(float(g), 2) for g in df[U].quantile([.25, .5, .75])]}")
     sk = [df[kv == q][HDL].dropna() for q in (1, 2, 3, 4)]
     P(f"  Kvartili urata — medijan HDL-a: {[round(float(s.median()), 2) for s in sk]}; "
       f"Kruskal-Wallis p = {stats.kruskal(*sk)[1]:.3g}")
@@ -316,7 +332,8 @@ def glavna(put, sheet):
         r = hijerarhijska(df, ishod, OSNOVNE, [U], blok3)
         P(f"  {ime}: R² {r['R2_1']:.3f} → {r['R2_2']:.3f}; ΔR² = {r['dR2']:.3f}; "
           f"F({r['df'][0]},{r['df'][1]}) = {r['F']:.2f}; p = {r['p']:.3g}; "
-          f"β = {r['beta']:.3f}; VIF max = {r['VIF_max']:.2f}; n = {r['n']}")
+          f"β = {r['beta']:.3f}; VIF {r['VIF_min']:.2f}–{r['VIF_max']:.2f}; n = {r['n']}")
+        P(f"            Breusch-Pagan p = {r['BP_p']:.3f}; Shapiro-Wilk reziduala p = {r['SW_p']:.3f}")
         if blok3:
             P(f"            + blok 3 (log TG): R² = {r['R2_3']:.3f}; "
               f"β(urat) = {r['beta_urat_3']:.3f} (p = {r['p_urat_3']:.3g}); "
